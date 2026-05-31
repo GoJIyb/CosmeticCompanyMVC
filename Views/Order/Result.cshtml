@@ -1,0 +1,28 @@
+﻿@model CosmeticCompanyMVC.Models.Product
+
+<h2>Замовлення успішно створене</h2>
+
+<table class="table table-bordered">
+
+    <tr>
+        <th>Назва товару</th>
+        <td>@Model.Name</td>
+    </tr>
+
+    <tr>
+        <th>Ціна</th>
+        <td>@Model.Price грн</td>
+    </tr>
+
+    <tr>
+        <th>Опис</th>
+        <td>@Model.Description</td>
+    </tr>
+
+</table>
+
+<a asp-controller="Order"
+   asp-action="Index"
+   class="btn btn-primary">
+    Назад
+</a>

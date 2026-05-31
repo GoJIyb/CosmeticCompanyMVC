@@ -1,0 +1,90 @@
+﻿@model CosmeticCompanyMVC.Models.Product
+
+@{
+    ViewData["Title"] = "Замовлення";
+}
+
+<div class="container mt-5">
+
+    <!-- Передача рядка з контролера -->
+
+    <div class="alert alert-info">
+        @ViewBag.Message
+    </div>
+
+    <h1 class="text-center mb-4">
+        Оформлення замовлення
+    </h1>
+
+    <!-- Передача моделі з контролера у представлення -->
+
+    <div class="card shadow p-4 mb-5">
+
+        <h3>Інформація про товар</h3>
+
+        <p>
+            <strong>Назва:</strong>
+            @Model.Name
+        </p>
+
+        <p>
+            <strong>Ціна:</strong>
+            @Model.Price грн
+        </p>
+
+        <p>
+            <strong>Опис:</strong>
+            @Model.Description
+        </p>
+
+    </div>
+
+    <!-- Передача моделі з представлення на контролер -->
+
+    <h3>Форма замовлення</h3>
+
+    <form asp-controller="Order"
+          asp-action="Create"
+          method="post">
+
+        <div class="mb-3">
+
+            <label asp-for="Name"
+                   class="form-label">
+            </label>
+
+            <input asp-for="Name"
+                   class="form-control" />
+
+        </div>
+
+        <div class="mb-3">
+
+            <label asp-for="Price"
+                   class="form-label">
+            </label>
+
+            <input asp-for="Price"
+                   class="form-control" />
+
+        </div>
+
+        <div class="mb-3">
+
+            <label asp-for="Description"
+                   class="form-label">
+            </label>
+
+            <input asp-for="Description"
+                   class="form-control" />
+
+        </div>
+
+        <button type="submit"
+                class="btn btn-success">
+            Відправити замовлення
+        </button>
+
+    </form>
+
+</div>
