@@ -1,3 +1,4 @@
+using BeautyCosmeticsMVC.Data;
 using CosmeticCompanyMVC.Data;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Identity;
@@ -7,6 +8,10 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using static System.Net.Mime.MediaTypeNames;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ApplicationDbContext>(
+    options => options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();

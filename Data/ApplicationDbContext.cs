@@ -1,13 +1,20 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using CosmeticCompanyMVC.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace CosmeticCompanyMVC.Data
+namespace BeautyCosmeticsMVC.Data
 {
-    public class ApplicationDbContext : IdentityDbContext
+    public class ApplicationDbContext : DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
         }
+
+        public DbSet<Category> Categories { get; set; }
+
+        public DbSet<Product> Products { get; set; }
+
+        public DbSet<Order> Orders { get; set; }
     }
 }
