@@ -1,11 +1,5 @@
-using BeautyCosmeticsMVC.Data;
 using CosmeticCompanyMVC.Data;
-using Microsoft.AspNetCore.Components.Routing;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using static System.Net.Mime.MediaTypeNames;
 
 var builder = WebApplication.CreateBuilder(args);
 

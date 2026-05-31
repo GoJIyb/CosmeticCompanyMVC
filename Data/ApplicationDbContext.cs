@@ -1,7 +1,7 @@
 ﻿using CosmeticCompanyMVC.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace BeautyCosmeticsMVC.Data
+namespace CosmeticCompanyMVC.Data
 {
     public class ApplicationDbContext : DbContext
     {
@@ -12,9 +12,7 @@ namespace BeautyCosmeticsMVC.Data
         }
 
         public DbSet<Category> Categories { get; set; }
-
         public DbSet<Product> Products { get; set; }
-
         public DbSet<Order> Orders { get; set; }
     }
 }
