@@ -38,69 +38,80 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
 
-// Ініціалізація БД та користувачів
+// КРОК 1: Міграція БД - окремо перед всім
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-
-    var context = services.GetRequiredService<ApplicationDbContext>();
-    var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-    // Міграція БД
-    context.Database.Migrate();
-    Console.WriteLine("✅ Міграція завершена");
-
-    // Створення ролей
-    string[] roleNames = new[] { "Administrator", "Member" };
-    foreach (var roleName in roleNames)
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
     {
-        var roleExist = roleManager.RoleExistsAsync(roleName).Result;
-        if (!roleExist)
-        {
-            roleManager.CreateAsync(new IdentityRole(roleName)).Wait();
-            Console.WriteLine($"✅ Роль '{roleName}' створена");
-        }
+        context.Database.Migrate();
+        Console.WriteLine("✅ Міграція БД завершена");
     }
-
-    // Створення адміністратора
-    string adminEmail = "admin@cosmeticcompany.com";
-    string adminPassword = "Admin@123";
-    string adminUserName = "Administrator";
-
-    var adminUser = userManager.FindByNameAsync(adminUserName).Result;
-    if (adminUser == null)
+    catch (Exception ex)
     {
-        var newAdmin = new IdentityUser
-        {
-            UserName = adminUserName,
-            Email = adminEmail,
-            EmailConfirmed = true,
-            NormalizedUserName = adminUserName.ToUpper(),
-            NormalizedEmail = adminEmail.ToUpper()
-        };
+        Console.WriteLine($"❌ Помилка при міграції: {ex.Message}");
+    }
+}
 
-        var result = userManager.CreateAsync(newAdmin, adminPassword).Result;
+// КРОК 2: Створення ролей та користувачів - ПІСЛЯ міграції
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
 
-        if (result.Succeeded)
+    try
+    {
+        // Створення ролей
+        string[] roleNames = { "Administrator", "Member" };
+        foreach (var roleName in roleNames)
         {
-            userManager.AddToRoleAsync(newAdmin, "Administrator").Wait();
-            Console.WriteLine($"✅ Адміністратор створен");
-            Console.WriteLine($"👤 UserName: {adminUserName}");
-            Console.WriteLine($"📧 Email: {adminEmail}");
-            Console.WriteLine($"🔑 Password: {adminPassword}");
+            bool roleExists = roleManager.RoleExistsAsync(roleName).Result;
+            if (!roleExists)
+            {
+                roleManager.CreateAsync(new IdentityRole(roleName)).Wait();
+                Console.WriteLine($"✅ Роль '{roleName}' створена");
+            }
+        }
+
+        // Створення адміністратора
+        var adminUser = userManager.FindByNameAsync("Administrator").Result;
+        if (adminUser == null)
+        {
+            var newAdmin = new IdentityUser
+            {
+                UserName = "Administrator",
+                Email = "admin@cosmeticcompany.com",
+                EmailConfirmed = true,
+                NormalizedUserName = "ADMINISTRATOR",
+                NormalizedEmail = "ADMIN@COSMETICCOMPANY.COM"
+            };
+
+            var result = userManager.CreateAsync(newAdmin, "Admin@123").Result;
+
+            if (result.Succeeded)
+            {
+                userManager.AddToRoleAsync(newAdmin, "Administrator").Wait();
+                Console.WriteLine("✅ Адміністратор створен успішно!");
+                Console.WriteLine("👤 Username: Administrator");
+                Console.WriteLine("🔑 Password: Admin@123");
+            }
+            else
+            {
+                foreach (var error in result.Errors)
+                {
+                    Console.WriteLine($"❌ Помилка при створенні користувача: {error.Description}");
+                }
+            }
         }
         else
         {
-            foreach (var error in result.Errors)
-            {
-                Console.WriteLine($"❌ Помилка: {error.Description}");
-            }
+            Console.WriteLine("ℹ️ Адміністратор вже існує");
         }
     }
-    else
+    catch (Exception ex)
     {
-        Console.WriteLine($"ℹ️ Адміністратор вже існує");
+        Console.WriteLine($"❌ Помилка при ініціалізації: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
     }
 }
 
