@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace CosmeticCompanyMVC.Models
 {
@@ -7,11 +7,12 @@ namespace CosmeticCompanyMVC.Models
         public int Id { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public decimal Price { get; set; }
 
-        public string Description { get; set; }
+        [Required]
+        public string Description { get; set; } = string.Empty;
 
         public int CategoryId { get; set; }
 
