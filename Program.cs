@@ -20,7 +20,14 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
+<<<<<<< HEAD
     options.Password.RequiredLength = 3;
+=======
+    options.Password.RequireUppercase = false;
+    options.Password.RequiredLength = 3;
+    options.Password.RequiredUniqueChars = 1;
+    options.User.RequireUniqueEmail = false;
+>>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
@@ -36,6 +43,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
 
+<<<<<<< HEAD
 // Ініціалізація БД та користувачів
 using (var scope = app.Services.CreateScope())
 {
@@ -60,6 +68,24 @@ using (var scope = app.Services.CreateScope())
                 await roleManager.CreateAsync(new IdentityRole(roleName));
                 Console.WriteLine($"✅ Роль '{roleName}' створена");
             }
+=======
+// Міграція та ініціалізація ролей та адміністратора
+try
+{
+    var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+
+    // Створення ролей
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    string[] roles = { "Administrator", "Member" };
+    
+    foreach (var role in roles)
+    {
+        if (!roleManager.RoleExistsAsync(role).Result)
+        {
+            roleManager.CreateAsync(new IdentityRole(role)).Wait();
+>>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f
         }
 
         // Створення адміністратора
@@ -106,6 +132,34 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"❌ Помилка при ініціалізації: {ex.Message}");
         Console.WriteLine(ex.StackTrace);
     }
+
+    // Створення адміністратора
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    string adminEmail = "admin@cosmeticcompany.com";
+    string adminPassword = "Admin@123"; // ⚠️ ЗМІНІТЬ ЦЕЙ ПАРОЛЬ!
+
+    if (userManager.FindByEmailAsync(adminEmail).Result == null)
+    {
+        var adminUser = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = userManager.CreateAsync(adminUser, adminPassword).Result;
+        
+        if (result.Succeeded)
+        {
+            userManager.AddToRoleAsync(adminUser, "Administrator").Wait();
+        }
+    }
+
+    scope.Dispose();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error during initialization: {ex.Message}");
 }
 
 if (!app.Environment.IsDevelopment())
@@ -126,4 +180,8 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
+<<<<<<< HEAD
 app.Run();
+=======
+app.Run();
+>>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f
