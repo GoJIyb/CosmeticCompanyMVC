@@ -1,11 +1,12 @@
 ﻿using CosmeticCompanyMVC.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CosmeticCompanyMVC.Data
 {
     public class ApplicationDbContext
-        : IdentityDbContext<ApplicationUser>
+        : IdentityDbContext<IdentityUser>
     {
         public ApplicationDbContext(
             DbContextOptions<ApplicationDbContext> options)
