@@ -3,6 +3,7 @@ using CosmeticCompanyMVC.Interfaces;
 using CosmeticCompanyMVC.Models;
 using CosmeticCompanyMVC.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Linq;
@@ -18,6 +19,10 @@ builder.Logging.AddFilter("Microsoft.AspNetCore.Identity", LogLevel.Debug);
 // DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Email sender settings
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 // Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
@@ -41,6 +46,24 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
+
+// Developer error page in Development
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
+// Global unhandled exception logging (helps capture crashes)
+AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(e.ExceptionObject as Exception, "Unhandled domain exception");
+};
+TaskScheduler.UnobservedTaskException += (s, e) =>
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(e.Exception, "Unobserved task exception");
+};
 
 // Ensure DB migrated
 using (var scope = app.Services.CreateScope())
