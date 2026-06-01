@@ -1,26 +1,25 @@
-﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Beauty Cosmetics</title>
+    <title>@ViewData["Title"] - Beauty Cosmetics</title>
 
     <link rel="stylesheet"
           href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
 
     <link rel="stylesheet"
-          href="~/css/site.css" asp-append-version="true" />
+          href="~/css/site.css"
+          asp-append-version="true" />
 </head>
-
 <body>
-
-    <!-- HEADER -->
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
 
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand"
+               asp-controller="Home"
+               asp-action="Index">
                 Beauty Cosmetics
             </a>
 
@@ -28,64 +27,77 @@
                     type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#navbarNav">
-
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse"
                  id="navbarNav">
 
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav me-auto">
 
                     <li class="nav-item">
-                        <a class="nav-link active" href="#">
+                        <a class="nav-link"
+                           asp-controller="Home"
+                           asp-action="Index">
                             Головна
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link"
+                           asp-controller="Products"
+                           asp-action="Index">
                             Продукція
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            Контакти
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" asp-controller="Order" asp-action="Index">
+                        <a class="nav-link"
+                           asp-controller="Order"
+                           asp-action="Index">
                             Замовлення
                         </a>
                     </li>
 
+                </ul>
+
+                <ul class="navbar-nav">
+
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           asp-controller="Account"
+                           asp-action="Login">
+                            Вхід
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           asp-controller="Account"
+                           asp-action="Logout">
+                            Вихід
+                        </a>
+                    </li>
 
                 </ul>
+
             </div>
         </div>
     </nav>
 
-    <!-- CONTENT -->
+    <div class="container mt-4">
 
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+        @RenderBody()
+
     </div>
 
-    <!-- FOOTER -->
-
     <footer class="bg-dark text-white text-center p-3 mt-5">
-
-        © 2026 Beauty Cosmetics.
-        Всі права захищені.
-
+        © 2026 Beauty Cosmetics
     </footer>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
+    @await RenderSectionAsync("Scripts", required: false)
 
 </body>
 </html>

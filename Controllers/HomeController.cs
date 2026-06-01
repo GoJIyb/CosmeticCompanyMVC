@@ -1,12 +1,13 @@
-
 using Microsoft.AspNetCore.Mvc;
 
 namespace CosmeticCompanyMVC.Controllers
 {
     public class HomeController : Controller
     {
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
+            await Task.CompletedTask;
+
             return View();
         }
     }
