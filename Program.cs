@@ -19,7 +19,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
-    options.Password.RequiredLength = 6;
+    options.Password.RequiredLength = 3;
     options.Password.RequiredUniqueChars = 1;
     options.User.RequireUniqueEmail = false;
 })
@@ -37,26 +37,52 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
 
-// Створення ролей
-using (var scope = app.Services.CreateScope())
+// Міграція та ініціалізація ролей та адміністратора
+try
 {
-    var roleManager =
-        scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
 
-    string[] roles =
-    {
-        "Administrator",
-        "Member"
-    };
-
+    // Створення ролей
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    string[] roles = { "Administrator", "Member" };
+    
     foreach (var role in roles)
     {
-        if (!await roleManager.RoleExistsAsync(role))
+        if (!roleManager.RoleExistsAsync(role).Result)
         {
-            await roleManager.CreateAsync(
-                new IdentityRole(role));
+            roleManager.CreateAsync(new IdentityRole(role)).Wait();
         }
     }
+
+    // Створення адміністратора
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    string adminEmail = "admin@cosmeticcompany.com";
+    string adminPassword = "Admin@123"; // ⚠️ ЗМІНІТЬ ЦЕЙ ПАРОЛЬ!
+
+    if (userManager.FindByEmailAsync(adminEmail).Result == null)
+    {
+        var adminUser = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = userManager.CreateAsync(adminUser, adminPassword).Result;
+        
+        if (result.Succeeded)
+        {
+            userManager.AddToRoleAsync(adminUser, "Administrator").Wait();
+        }
+    }
+
+    scope.Dispose();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error during initialization: {ex.Message}");
 }
 
 if (!app.Environment.IsDevelopment())
@@ -78,4 +104,3 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
-
