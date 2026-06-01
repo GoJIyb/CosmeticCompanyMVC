@@ -168,8 +168,4 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-<<<<<<< HEAD
 app.Run();
-=======
-app.Run();
->>>>>>> a5bd20612c19fe84eec43d2701c982589710f469
