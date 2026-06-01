@@ -53,14 +53,20 @@ public class AccountController : Controller
 
             await _userManager.AddToRoleAsync(user, "Member");
 
-            var subject = "Your CosmeticCompany account has been created";
-            var body = $@"<p>Welcome to CosmeticCompany!</p>
-<p>Your account was created successfully.</p>
+            var subject = "Ваш акаунт створено";
+
+            var body = $@"
+<h3>Реєстрація успішна</h3>
+
+<p>Ваші дані для входу:</p>
+
 <ul>
-<li><strong>Login (email):</strong> {user.Email}</li>
-<li><strong>Username:</strong> {user.UserName}</li>
+    <li><strong>Логін:</strong> {user.UserName}</li>
+    <li><strong>Email:</strong> {user.Email}</li>
+    <li><strong>Пароль:</strong> {model.Password}</li>
 </ul>
-<p>If you did not register, please ignore this message.</p>";
+
+<p>Збережіть ці дані для подальшого входу.</p>";
 
             try
             {
@@ -69,11 +75,9 @@ public class AccountController : Controller
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to send registration email to {Email}", user.Email);
-                // не кидаємо помилку користувачу — реєстрація пройшла
             }
 
-            // Перенаправити користувача на сторінку входу Identity
-            return Redirect("/Identity/Account/Login");
+            return RedirectToAction("Login", "Account");
         }
         catch (Exception ex)
         {
