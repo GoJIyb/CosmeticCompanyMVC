@@ -4,13 +4,20 @@ using CosmeticCompanyMVC.Models;
 using CosmeticCompanyMVC.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// База даних
+// Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.AddFilter("Microsoft.AspNetCore.Identity", LogLevel.Debug);
+
+// DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
@@ -20,146 +27,127 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
-<<<<<<< HEAD
     options.Password.RequiredLength = 3;
-=======
-    options.Password.RequireUppercase = false;
-    options.Password.RequiredLength = 3;
-    options.Password.RequiredUniqueChars = 1;
     options.User.RequireUniqueEmail = false;
->>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// MVC
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
-// Сервіси
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
 
-<<<<<<< HEAD
-// Ініціалізація БД та користувачів
+// Ensure DB migrated
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-        // Міграція БД
         context.Database.Migrate();
-        Console.WriteLine("✅ Міграція завершена");
-
-        // Створення ролей
-        string[] roleNames = { "Administrator", "Member" };
-        foreach (var roleName in roleNames)
-        {
-            var roleExist = await roleManager.RoleExistsAsync(roleName);
-            if (!roleExist)
-            {
-                await roleManager.CreateAsync(new IdentityRole(roleName));
-                Console.WriteLine($"✅ Роль '{roleName}' створена");
-            }
-=======
-// Міграція та ініціалізація ролей та адміністратора
-try
-{
-    var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
-
-    // Створення ролей
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    string[] roles = { "Administrator", "Member" };
-    
-    foreach (var role in roles)
+        logger.LogInformation("Database migration applied.");
+    }
+    catch (Exception ex)
     {
-        if (!roleManager.RoleExistsAsync(role).Result)
+        logger.LogError(ex, "Error while migrating database.");
+    }
+}
+
+// Seed roles and administrator (idempotent)
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        var roles = new[] { "Administrator", "Member" };
+        foreach (var roleName in roles)
         {
-            roleManager.CreateAsync(new IdentityRole(role)).Wait();
->>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f
+            if (!await roleManager.RoleExistsAsync(roleName))
+            {
+                var r = await roleManager.CreateAsync(new IdentityRole(roleName));
+                if (r.Succeeded)
+                {
+                    logger.LogInformation("Role '{Role}' created.", roleName);
+                }
+                else
+                {
+                    logger.LogWarning("Failed to create role {Role}: {Errors}", roleName, string.Join(';', r.Errors.Select(e => e.Description)));
+                }
+            }
         }
 
-        // Створення адміністратора
-        string adminEmail = "admin@cosmeticcompany.com";
-        string adminPassword = "Admin@123";
-        string adminUserName = "Administrator";
+        // Admin credentials
+        var adminUserName = "Administrator";
+        var adminEmail = "admin@cosmeticcompany.com";
+        var adminPassword = "Admin123";
 
-        var adminUser = await userManager.FindByNameAsync(adminUserName);
-        if (adminUser == null)
+        // Try find by email first, then by username
+        var admin = await userManager.FindByEmailAsync(adminEmail) ?? await userManager.FindByNameAsync(adminUserName);
+        if (admin == null)
         {
-            var newAdmin = new IdentityUser
+            admin = new IdentityUser
             {
                 UserName = adminUserName,
                 Email = adminEmail,
                 EmailConfirmed = true,
-                NormalizedUserName = adminUserName.ToUpper(),
-                NormalizedEmail = adminEmail.ToUpper()
+                NormalizedUserName = adminUserName.ToUpperInvariant(),
+                NormalizedEmail = adminEmail.ToUpperInvariant()
             };
 
-            var result = await userManager.CreateAsync(newAdmin, adminPassword);
-
-            if (result.Succeeded)
+            var createResult = await userManager.CreateAsync(admin, adminPassword);
+            if (createResult.Succeeded)
             {
-                await userManager.AddToRoleAsync(newAdmin, "Administrator");
-                Console.WriteLine($"✅ Адміністратор створен: {adminUserName}");
-                Console.WriteLine($"📧 Email: {adminEmail}");
-                Console.WriteLine($"🔑 Пароль: {adminPassword}");
+                logger.LogInformation("Administrator user created. Username: {User} Password: {Pwd}", adminUserName, adminPassword);
             }
             else
             {
-                foreach (var error in result.Errors)
-                {
-                    Console.WriteLine($"❌ Помилка: {error.Description}");
-                }
+                logger.LogError("Failed to create admin user: {Errors}", string.Join(';', createResult.Errors.Select(e => e.Description)));
             }
         }
         else
         {
-            Console.WriteLine($"ℹ️ Адміністратор вже існує: {adminUserName}");
+            logger.LogInformation("Administrator already exists (Id: {Id}, Email: {Email}).", admin.Id, admin.Email);
+
+            // Ensure password is set to known value in dev: reset it
+            var token = await userManager.GeneratePasswordResetTokenAsync(admin);
+            var resetResult = await userManager.ResetPasswordAsync(admin, token, adminPassword);
+            if (resetResult.Succeeded)
+            {
+                logger.LogInformation("Administrator password reset to '{Pwd}'.", adminPassword);
+            }
+            else
+            {
+                logger.LogWarning("Password reset returned errors: {Errors}", string.Join(';', resetResult.Errors.Select(e => e.Description)));
+            }
+        }
+
+        // Ensure admin is in Administrator role
+        if (!await userManager.IsInRoleAsync(admin, "Administrator"))
+        {
+            var addRoleResult = await userManager.AddToRoleAsync(admin, "Administrator");
+            if (addRoleResult.Succeeded)
+            {
+                logger.LogInformation("Administrator added to role Administrator.");
+            }
+            else
+            {
+                logger.LogError("Failed to add Administrator to role: {Errors}", string.Join(';', addRoleResult.Errors.Select(e => e.Description)));
+            }
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Помилка при ініціалізації: {ex.Message}");
-        Console.WriteLine(ex.StackTrace);
+        var logger2 = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger2.LogError(ex, "Error while seeding roles/users.");
     }
-
-    // Створення адміністратора
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    string adminEmail = "admin@cosmeticcompany.com";
-    string adminPassword = "Admin@123"; // ⚠️ ЗМІНІТЬ ЦЕЙ ПАРОЛЬ!
-
-    if (userManager.FindByEmailAsync(adminEmail).Result == null)
-    {
-        var adminUser = new ApplicationUser
-        {
-            UserName = adminEmail,
-            Email = adminEmail,
-            EmailConfirmed = true
-        };
-
-        var result = userManager.CreateAsync(adminUser, adminPassword).Result;
-        
-        if (result.Succeeded)
-        {
-            userManager.AddToRoleAsync(adminUser, "Administrator").Wait();
-        }
-    }
-
-    scope.Dispose();
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Error during initialization: {ex.Message}");
 }
 
 if (!app.Environment.IsDevelopment())
@@ -180,8 +168,4 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-<<<<<<< HEAD
 app.Run();
-=======
-app.Run();
->>>>>>> 0512fb6d3535aab3391fac82148363b24c45639f

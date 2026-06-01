@@ -1,7 +1,3 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -14,8 +10,6 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using CosmeticCompanyMVC.Data;
-using CosmeticCompanyMVC.Models;
 
 namespace CosmeticCompanyMVC.Areas.Identity.Pages.Account;
 
@@ -30,58 +24,27 @@ public class LoginModel : PageModel
         _logger = logger;
     }
 
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
     [BindProperty]
     public InputModel Input { get; set; } = default!;
 
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
     public IList<AuthenticationScheme>? ExternalLogins { get; set; }
 
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
     public string? ReturnUrl { get; set; }
 
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
     [TempData]
     public string? ErrorMessage { get; set; }
 
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
     public class InputModel
     {
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
+        // Дозволяємо вводити або Username або Email (без жорсткої перевірки EmailAddress)
         [Required]
-        [EmailAddress]
-        public string UserName { get; set; } = default!;
+        [Display(Name = "Логін або Email")]
+        public string LoginOrEmail { get; set; } = default!;
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         [Required]
         [DataType(DataType.Password)]
         public string Password { get; set; } = default!;
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         [Display(Name = "Remember me?")]
         public bool RememberMe { get; set; }
     }
@@ -106,36 +69,70 @@ public class LoginModel : PageModel
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
         returnUrl ??= Url.Content("~/");
-
         ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
 
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
         {
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            var result = await _signInManager.PasswordSignInAsync(Input.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            return Page();
+        }
+
+        // 1) Спроба увійти напряму тим рядком, що ввів користувач (може бути Username)
+        var attemptKey = Input.LoginOrEmail.Trim();
+        var result = await _signInManager.PasswordSignInAsync(attemptKey, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+        _logger.LogDebug("PasswordSignInAsync (direct) for '{Key}': Succeeded={Succeeded}, LockedOut={LockedOut}, Requires2FA={Requires2FA}, IsNotAllowed={IsNotAllowed}",
+            attemptKey, result.Succeeded, result.IsLockedOut, result.RequiresTwoFactor, result.IsNotAllowed);
+
+        if (result.Succeeded)
+        {
+            _logger.LogInformation("User logged in (direct) with key {Key}.", attemptKey);
+            return LocalRedirect(returnUrl);
+        }
+
+        // 2) Якщо не вдалось, пробуємо знайти користувача по email і увійти під його UserName
+        IdentityUser? userByEmail = null;
+        try
+        {
+            userByEmail = await _signInManager.UserManager.FindByEmailAsync(attemptKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Exception during FindByEmailAsync for {Key}", attemptKey);
+        }
+
+        if (userByEmail != null)
+        {
+            _logger.LogDebug("Found user by email: {Email} -> username {UserName}", userByEmail.Email, userByEmail.UserName);
+            result = await _signInManager.PasswordSignInAsync(userByEmail.UserName!, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+            _logger.LogDebug("PasswordSignInAsync (email->username) for '{Email}': Succeeded={Succeeded}, LockedOut={LockedOut}, Requires2FA={Requires2FA}, IsNotAllowed={IsNotAllowed}",
+                attemptKey, result.Succeeded, result.IsLockedOut, result.RequiresTwoFactor, result.IsNotAllowed);
+
             if (result.Succeeded)
             {
-                _logger.LogInformation("User logged in.");
+                _logger.LogInformation("User logged in via email lookup: {Email}", attemptKey);
                 return LocalRedirect(returnUrl);
-            }
-            if (result.RequiresTwoFactor)
-            {
-                return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl, RememberMe = Input.RememberMe });
-            }
-            if (result.IsLockedOut)
-            {
-                _logger.LogWarning("User account locked out.");
-                return RedirectToPage("./Lockout");
-            }
-            else
-            {
-                ModelState.AddModelError(string.Empty, "Invalid login attempt.");
-                return Page();
             }
         }
 
-        // If we got this far, something failed, redisplay form
+        // 3) Додаткове логування причини невдачі
+        if (result.RequiresTwoFactor)
+        {
+            return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl, RememberMe = Input.RememberMe });
+        }
+        if (result.IsLockedOut)
+        {
+            _logger.LogWarning("User account locked out for key {Key}.", attemptKey);
+            return RedirectToPage("./Lockout");
+        }
+        if (result.IsNotAllowed)
+        {
+            _logger.LogWarning("Sign-in not allowed for key {Key}.", attemptKey);
+            ModelState.AddModelError(string.Empty, "Sign-in not allowed for this account.");
+            return Page();
+        }
+
+        ModelState.AddModelError(string.Empty, "Invalid login attempt.");
         return Page();
     }
 }
