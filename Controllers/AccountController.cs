@@ -1,10 +1,9 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using CosmeticCompanyMVC.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using CosmeticCompanyMVC.Models;
+using System.Net;
+using System.Net.Mail;
 
 namespace CosmeticCompanyMVC.Controllers;
 
@@ -14,7 +13,10 @@ public class AccountController : Controller
     private readonly IEmailSender _emailSender;
     private readonly ILogger<AccountController> _logger;
 
-    public AccountController(UserManager<IdentityUser> userManager, IEmailSender emailSender, ILogger<AccountController> logger)
+    public AccountController(
+        UserManager<IdentityUser> userManager,
+        IEmailSender emailSender,
+        ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _emailSender = emailSender;
@@ -38,34 +40,74 @@ public class AccountController : Controller
 
         try
         {
-            var userName = string.IsNullOrWhiteSpace(model.UserName) ? model.Email : model.UserName;
-            var user = new IdentityUser { UserName = userName, Email = model.Email, EmailConfirmed = false };
+            var userName = string.IsNullOrWhiteSpace(model.UserName)
+                ? model.Email
+                : model.UserName;
+
+            var user = new IdentityUser
+            {
+                UserName = userName,
+                Email = model.Email,
+                EmailConfirmed = false
+            };
 
             var result = await _userManager.CreateAsync(user, model.Password);
-            if (!result.Succeeded)
+            if (result.Succeeded)
             {
-                foreach (var err in result.Errors)
+                try
                 {
-                    ModelState.AddModelError(string.Empty, err.Description);
-                }
-                return View(model);
-            }
+                    string smtpHost = "smtp.gmail.com";
+                    int smtpPort = 587;
 
+                    string smtpUser = "mrx3xxxx@gmail.com";
+                    string smtpPass = "wwqd gvsl xcoj vmef";
+
+                    using var client = new SmtpClient(smtpHost, smtpPort)
+                    {
+                        Credentials = new NetworkCredential(smtpUser, smtpPass),
+                        EnableSsl = true
+                    };
+
+                    var message = new MailMessage
+                    {
+                        From = new MailAddress(smtpUser, "CosmeticCompanyMVC"),
+                        Subject = "Дані для входу",
+                        Body =
+            $@"Вітаємо!
+
+Ваш акаунт успішно створено.
+
+Логін: {model.Email}
+Пароль: {model.Password}
+
+З повагою,
+CosmeticCompanyMVC",
+                        IsBodyHtml = false
+                    };
+
+                    message.To.Add(model.Email);
+
+                    await client.SendMailAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+
+                return RedirectToAction("Login");
+            }
             await _userManager.AddToRoleAsync(user, "Member");
 
+            // Надсилаємо email з даними для входу
             var subject = "Ваш акаунт створено";
-
             var body = $@"
 <h3>Реєстрація успішна</h3>
-
 <p>Ваші дані для входу:</p>
-
 <ul>
     <li><strong>Логін:</strong> {user.UserName}</li>
     <li><strong>Email:</strong> {user.Email}</li>
     <li><strong>Пароль:</strong> {model.Password}</li>
 </ul>
-
 <p>Збережіть ці дані для подальшого входу.</p>";
 
             try
@@ -74,18 +116,47 @@ public class AccountController : Controller
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to send registration email to {Email}", user.Email);
+                // Не блокуємо реєстрацію якщо email не надіслано
+                _logger.LogWarning(ex,
+                    "Не вдалося надіслати лист реєстрації на {Email}", user.Email);
             }
 
+            // Перенаправляємо на сторінку входу
             return RedirectToAction("Login", "Account");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled error during registration");
-            // Показати загальну помилку на сторінці реєстрації
-            ModelState.AddModelError(string.Empty, "Сталася помилка при реєстрації. Перегляньте логи сервера.");
+            _logger.LogError(ex, "Помилка під час реєстрації");
+            ModelState.AddModelError(string.Empty,
+                "Сталася помилка при реєстрації. Перегляньте логи сервера.");
             return View(model);
         }
+    }
+
+    [HttpGet]
+    public IActionResult Login()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(LoginViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var user = await _userManager.FindByNameAsync(model.Username)
+                   ?? await _userManager.FindByEmailAsync(model.Username);
+
+        if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+        {
+            ViewBag.Error = "Невірний логін або пароль.";
+            return View(model);
+        }
+
+        // Додайте SignInManager якщо він є в DI; інакше використовується Razor Pages login
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpGet]

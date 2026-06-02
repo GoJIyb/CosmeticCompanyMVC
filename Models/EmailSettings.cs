@@ -8,5 +8,5 @@ public class EmailSettings
     public string SmtpPass { get; set; } = "";
     public bool UseSSL { get; set; }
     public string FromName { get; set; } = "CosmeticCompany";
-    public string FromEmail { get; set; } = "no-reply@cosmeticcompany.com";
+    public string FromEmail { get; set; } = "mrx3xxxx@gmail.com";
 }
